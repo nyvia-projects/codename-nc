@@ -9,7 +9,9 @@ const rl = readline.createInterface({
 });
 
 rl.question('Enter your name: ', (answer) => {
-  console.log(`Hello, ${answer}!`);
+  console.log(`
+  Hello, ${answer}!
+  `);
 
   rl.close();
 });
