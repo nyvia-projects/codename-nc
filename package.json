@@ -21,7 +21,7 @@
     "start:dev": "npx nodemon",
     "format": "prettier --write .",
     "lint": "eslint .",
-    "lint:fix": "npm run lint --fix",
+    "lint:fix": "npm run lint -- --fix",
     "build": "rimraf ./build && tsc",
     "prepare": "husky install",
     "start:prod": "npm run build && node build/index.js",
