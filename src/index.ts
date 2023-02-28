@@ -1,4 +1,4 @@
-import * as net from 'net';
+// import * as net from 'net';
 import * as readline from 'readline';
 
 const rl = readline.createInterface({
