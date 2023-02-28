@@ -1,0 +1,23 @@
+{
+  "typescript.suggest.completeFunctionCalls": true,
+  "javascript.suggest.completeFunctionCalls": true,
+  "vim.useSystemClipboard": true,
+  "workbench.startupEditor": "none",
+  "workbench.colorTheme": "Default Dark+ Experimental",
+  "editor.multiCursorModifier": "ctrlCmd",
+  "search.showLineNumbers": true,
+  "[search-result]": {
+    "editor.lineNumbers": "relative"
+  },
+  "notebook.lineNumbers": "on",
+  "zenMode.hideLineNumbers": false,
+  "editor.lineNumbers": "relative",
+  "vim.smartRelativeLine": true,
+  "editor.guides.indentation": false,
+  "editor.formatOnType": true,
+  "workbench.iconTheme": "vscode-icons",
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "prettier.arrowParens": "avoid",
+  "editor.formatOnSave": true,
+  "explorer.confirmDelete": false
+}
