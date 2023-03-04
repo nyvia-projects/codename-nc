@@ -1,6 +1,5 @@
 import * as os from 'os';
 import * as net from 'net';
-import { EventEmitter } from 'events';
 import * as readLine from 'readline';
 import { clear } from 'console';
 
@@ -21,7 +20,7 @@ class IPError extends ProgramError {
 class InvalidPortError extends ProgramError {
   constructor(message: string) {
     const defaultMessage = 'Invalid port number';
-    super(message ? defaultMessage + ' ' + message : defaultMessage);
+    super(message ? defaultMessage + ':\n\t ' + message : defaultMessage);
     this.name = 'PortError';
   }
 }
@@ -29,7 +28,7 @@ class InvalidPortError extends ProgramError {
 class InvalidArgumentsError extends ProgramError {
   constructor(message?: string) {
     const defaultMessage = 'Invalid argument(s)';
-    super(message ? defaultMessage + ': ' + message : defaultMessage);
+    super(message ? defaultMessage + ':\n\t ' + message : defaultMessage);
     this.name = 'InvalidArgumentsError';
   }
 }
@@ -120,6 +119,7 @@ try {
     private readonly _ip: IPv4;
     private readonly _port: number;
 
+    // connections to this server
     private sockets: net.Socket[] = [];
     private tcpServer: net.Server;
 
@@ -140,7 +140,7 @@ try {
         });
 
         socket.on('close', () => {
-          console.log('A client has left the chat!');
+          console.log('A client terminated connection!');
         });
       });
 
@@ -148,12 +148,13 @@ try {
     }
 
     private broadcast = (source: net.Socket, message: Buffer) => {
+      // used when client terminates
       if (message.toString() === 'exit') {
         // find index of socket
         const index = this.sockets.indexOf(source);
 
-        // removes that index
-        this.sockets.slice(index, 1);
+        // removes the client who left
+        this.sockets.splice(index, 1);
       } else {
         this.sockets.forEach((socket) => {
           // trasmit to all sockets but the source
@@ -209,11 +210,9 @@ try {
 
     private connections: Connection[] = [];
     private _nextId;
-    private connectionEmitter: EventEmitter;
 
     private constructor() {
       this._nextId = 1;
-      this.connectionEmitter = new EventEmitter();
     }
 
     static getInstance(): ConnectionsManager {
@@ -223,6 +222,7 @@ try {
       return ConnectionsManager.instance;
     }
 
+    // connects socket to remote server
     private connectSocket(connection: Connection): void {
       const { remoteIP, remotePort, socket } = connection;
 
@@ -232,11 +232,15 @@ try {
     }
 
     addConnection(remoteIP: IPv4, remotePort: Port): void {
+      // input validation
       if (!remotePort.isValid() || !remoteIP || !remotePort) {
         throw new InvalidArgumentsError();
       }
 
+      // new socket
       const socket = new net.Socket();
+
+      // new connection
       const connection: Connection = {
         id: this._nextId,
         remoteIP,
@@ -244,46 +248,23 @@ try {
         socket,
       };
 
-      /*       reader.on('line', (data) => {
-        if (data === 'exit') {
-          socket.write(`${ip} left`);
-          socket.setTimeout(1000);
-        } else {
-          socket.write(`${ip}: ${data}`);
-        }
-      }); 
-    
-      socket.on('data', (data) => {
-        console.log('\x1b[33m%s\x1b[0m', data);
-      });
-    
-      socket.on('timeout', () => {
-        socket.write('exit');
-        socket.end();
-      });
-    
-      socket.on('end', () => {
-        process.exit();
-      }); */
-
-      // Add event listeners for this socket
       socket.on('connect', () => {
         this.updateConnectionIds();
-        this.connectionEmitter.emit('connected', socket);
         socket.write(` joined`);
       });
 
       socket.on('error', () => {
-        this.connectionEmitter.emit('disconnected', socket);
         console.log('server is offline..');
       });
 
+      // add to connections
       this.connections.push(connection);
       console.log('Connection added!');
 
-      // Connect the new socket
+      // connect the new socket
       this.connectSocket(connection);
 
+      // next id
       this._nextId++;
     }
 
@@ -301,6 +282,13 @@ try {
       this.updateConnectionIds();
     }
 
+    private updateConnectionIds(): void {
+      this.connections.forEach((connection, index) => {
+        connection.id = index + 1;
+      });
+      this._nextId = this.connections.length + 1;
+    }
+
     listConnections(): string {
       let result = '';
       result += 'Connections\n' + 'id\tIP Address\tPort\n';
@@ -313,35 +301,18 @@ try {
       return result;
     }
 
-    private updateConnectionIds(): void {
-      this.connections.forEach((connection, index) => {
-        connection.id = index + 1;
-      });
+    sendMessage(connectionId: number, message: string): void {
+      const connection = this.connections.find(
+        (conn) => conn.id === connectionId
+      );
 
-      this._nextId = this.connections.length + 1;
-    }
+      if (!connection) {
+        throw new ConnectionError(
+          `Connection with id ${connectionId} not found!`
+        );
+      }
 
-    startListening(): void {
-      // Add listener for connected and disconnected events
-      this.connectionEmitter.on('connected', (socket: net.Socket) => {
-        console.log(
-          `Socket ${socket.remoteAddress ?? 'unknown'}:${
-            socket.remotePort ?? 'unknown'
-          } connected!`
-        );
-      });
-
-      this.connectionEmitter.on('disconnected', (socket: net.Socket) => {
-        console.log(
-          `Socket ${socket.remoteAddress ?? 'unknown'}:${
-            socket.remotePort ?? 'unknown'
-          } disconnected!`
-        );
-        const connection = this.connections.find(
-          (conn) => conn.socket === socket
-        );
-        if (connection) this.connectSocket(connection);
-      });
+      connection.socket.write(message);
     }
   }
 
@@ -424,15 +395,43 @@ try {
       this.manager.addConnection(remoteIP, remotePort);
     }
   }
+
   class ListCommand implements ICommand {
     name = 'list' as const;
 
     constructor(private readonly manager: ConnectionsManager) {}
-    execute(): void {
+    execute(args: string[]): void {
+      if (args.length > 0) {
+        throw new InvalidArgumentsError(
+          'This command does not accept arguments!'
+        );
+      }
       console.log(this.manager.listConnections());
     }
   }
 
+  class SendCommand implements ICommand {
+    name = 'send' as const;
+    constructor(private readonly manager: ConnectionsManager) {}
+    execute(args: string[]): void {
+      if (args.length < 2) {
+        throw new InvalidArgumentsError(
+          'Expected at least 2 arguments: connection id and message!'
+        );
+      }
+
+      const connectionId: number = parseInt(args[0], 10);
+      if (isNaN(connectionId)) {
+        throw new InvalidArgumentsError('Connection id must be a number!');
+      }
+
+      const message: string = args.slice(1).join(' ');
+      if (!message) {
+        throw new InvalidArgumentsError('Message cannot be empty!');
+      }
+      this.manager.sendMessage(connectionId, message);
+    }
+  }
   class ExitCommand implements ICommand {
     name = 'exit' as const;
     execute(): void {
@@ -440,6 +439,14 @@ try {
       process.exit(0);
     }
   }
+  const cli = readLine.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  clear();
+  cli.setPrompt('~> ');
+  cli.prompt();
 
   const commands: ICommand[] = [
     new HelpCommand(),
@@ -447,22 +454,13 @@ try {
     new MyPortCommand(Server.getInstance(args[0])),
     new ConnectCommand(ConnectionsManager.getInstance()),
     new ListCommand(ConnectionsManager.getInstance()),
+    new SendCommand(ConnectionsManager.getInstance()),
     new ExitCommand(),
   ];
-
-  const cli = readLine.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  clear();
-  cli.setPrompt('> ');
-  cli.prompt();
 
   cli.on('line', (input) => {
     const inputArgs = input.trim().split(' ');
     const command = commands.find((cmd) => cmd.name === inputArgs[0]);
-
     if (command) {
       try {
         const commandArgs = inputArgs.slice(1);
@@ -472,6 +470,8 @@ try {
           console.error(error.message);
         else console.error(String(error));
       }
+    } else if (input === '') {
+      cli.prompt();
     } else {
       console.log('Command not found!');
     }

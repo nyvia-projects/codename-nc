@@ -2,6 +2,6 @@
   "watch": ["src"],
   "ext": ".ts,.js",
   "ignore": ["node_modules", "build", "coverage"],
-  "exec": "npx ts-node ./src/index.ts",
+  "exec": "npx ts-node ./src/index.ts 1234",
   "restartable": "--rs"
 }
