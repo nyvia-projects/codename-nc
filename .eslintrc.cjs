@@ -21,4 +21,19 @@ module.exports = {
   },
   plugins: ['@typescript-eslint'],
   root: true,
+  rules: {
+    'lines-around-comment': [
+      'warn',
+      {
+        beforeBlockComment: true,
+        beforeLineComment: true,
+        allowBlockStart: true,
+        allowBlockEnd: false,
+        allowObjectStart: true,
+        allowObjectEnd: false,
+        allowArrayStart: true,
+        allowArrayEnd: false,
+      },
+    ],
+  },
 };

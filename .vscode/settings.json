@@ -3,7 +3,7 @@
   "javascript.suggest.completeFunctionCalls": true,
   "vim.useSystemClipboard": true,
   "workbench.startupEditor": "none",
-  "workbench.colorTheme": "Default Dark+ Experimental",
+  "workbench.colorTheme": "Default Dark+",
   "editor.multiCursorModifier": "ctrlCmd",
   "search.showLineNumbers": true,
   "[search-result]": {
