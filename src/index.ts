@@ -120,7 +120,7 @@ try {
     private readonly _port: number;
 
     // connections to this server
-    private sockets: net.Socket[] = [];
+    private tcpClients: net.Socket[] = [];
     private tcpServer: net.Server;
 
     private constructor(port: IPort) {
@@ -128,17 +128,27 @@ try {
       this._port = port.value;
 
       this.tcpServer = net.createServer((socket): void => {
-        this.sockets.push(socket);
-        console.log('Client connected!');
+        this.tcpClients.push(socket);
+        console.log(
+          `New Client connected:  ${socket.remoteAddress ?? 'unkown'}`
+        );
+        socket.write('Welcome------');
 
         socket.on('data', (data) => {
-          this.broadcast(socket, data);
+          console.log(
+            `Message received from:\t ${
+              (socket.remoteAddress as IPv4) ?? 'unknown'
+            }`
+          );
+          console.log(`Sender port:\t ${socket.remotePort ?? 'unknown'}`);
+          console.log(`Message:\t ${data.toString()}`);
         });
 
         socket.on('error', (error) => {
           console.log('A client has disconnected!');
         });
 
+        // Ctrl + C
         socket.on('close', () => {
           console.log('A client terminated connection!');
         });
@@ -146,22 +156,6 @@ try {
 
       this.tcpServer.listen(this._port);
     }
-
-    private broadcast = (source: net.Socket, message: Buffer) => {
-      // used when client terminates
-      if (message.toString() === 'exit') {
-        // find index of socket
-        const index = this.sockets.indexOf(source);
-
-        // removes the client who left
-        this.sockets.splice(index, 1);
-      } else {
-        this.sockets.forEach((socket) => {
-          // trasmit to all sockets but the source
-          if (socket !== source) socket.write(message);
-        });
-      }
-    };
 
     public static getInstance(portNumber: string): Server {
       const portInt = parseInt(portNumber, 10);
@@ -248,7 +242,7 @@ try {
         socket,
       };
 
-      socket.on('connect', () => {
+      socket.on('connection', () => {
         this.updateConnectionIds();
         socket.write(` joined`);
       });
@@ -338,7 +332,15 @@ try {
           'This command does not accept arguments'
         );
       }
-      console.log('Help message here!');
+      console.log('Available commands:');
+      console.log('help \t\t\t Prints help message');
+      console.log('myip \t\t\t Prints local IP');
+      console.log('myport \t\t\t Prints listening port');
+      console.log('connect <ip> <port> \t Connects to server in network');
+      console.log('list \t\t\t Lists connections');
+      console.log('terminate <id> \t\t Terminates a connection');
+      console.log('send <id> <message> \t Sends message to server');
+      console.log('exit \t\t\t Terminates connections and exits');
     }
   }
 
@@ -444,10 +446,6 @@ try {
     output: process.stdout,
   });
 
-  clear();
-  cli.setPrompt('~> ');
-  cli.prompt();
-
   const commands: ICommand[] = [
     new HelpCommand(),
     new MyIPCommand(Server.getInstance(args[0])),
@@ -457,6 +455,10 @@ try {
     new SendCommand(ConnectionsManager.getInstance()),
     new ExitCommand(),
   ];
+
+  clear();
+  cli.setPrompt('~> ');
+  cli.prompt();
 
   cli.on('line', (input) => {
     const inputArgs = input.trim().split(' ');
@@ -473,7 +475,7 @@ try {
     } else if (input === '') {
       cli.prompt();
     } else {
-      console.log('Command not found!');
+      console.log("Unkown command:\n\t Type 'help' for available commands!");
     }
     cli.prompt();
   });
