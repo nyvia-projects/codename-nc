@@ -129,19 +129,14 @@ try {
 
       this.tcpServer = net.createServer((socket): void => {
         this.tcpClients.push(socket);
-        console.log(
-          `New Client connected:  ${socket.remoteAddress ?? 'unkown'}`
-        );
+        const remoteIP = socket.remoteAddress?.replace(/^.*:/, '');
+        console.log(`New Client connected:  ${remoteIP as unknown as string}`);
         socket.write('Welcome------');
 
         socket.on('data', (data) => {
-          console.log(
-            `Message received from:\t ${
-              (socket.remoteAddress as IPv4) ?? 'unknown'
-            }`
-          );
-          console.log(`Sender port:\t ${socket.remotePort ?? 'unknown'}`);
-          console.log(`Message:\t ${data.toString()}`);
+          console.log(`Message received from:\t ${remoteIP as string}`);
+          console.log(`Sender port:\t\t ${socket.remotePort ?? 'unknown'}`);
+          console.log(`Message:\t\t ${data.toString()}`);
         });
 
         socket.on('error', (error) => {
@@ -242,7 +237,7 @@ try {
         socket,
       };
 
-      socket.on('connection', () => {
+      socket.on('connect', () => {
         this.updateConnectionIds();
         socket.write(` joined`);
       });
@@ -285,7 +280,7 @@ try {
 
     listConnections(): string {
       let result = '';
-      result += 'Connections\n' + 'id\tIP Address\tPort\n';
+      result += 'id\tIP Address\tPort\n';
       result += this.connections
         .map(
           (connection) =>
@@ -412,6 +407,23 @@ try {
     }
   }
 
+  class TerminateCommand implements ICommand {
+    name = 'terminate' as const;
+    constructor(private readonly manager: ConnectionsManager) {}
+    execute(args: string[]): void {
+      if (args.length < 1) {
+        throw new InvalidArgumentsError(
+          'Expected a single argument: connectionId!'
+        );
+      }
+      const connectionId: number = parseInt(args[0], 10);
+      if (isNaN(connectionId)) {
+        throw new InvalidArgumentsError('ConnectionId must be a number!');
+      }
+      this.manager.removeConnection(connectionId);
+    }
+  }
+
   class SendCommand implements ICommand {
     name = 'send' as const;
     constructor(private readonly manager: ConnectionsManager) {}
@@ -424,7 +436,7 @@ try {
 
       const connectionId: number = parseInt(args[0], 10);
       if (isNaN(connectionId)) {
-        throw new InvalidArgumentsError('Connection id must be a number!');
+        throw new InvalidArgumentsError('ConnectionId must be a number!');
       }
 
       const message: string = args.slice(1).join(' ');
@@ -452,6 +464,7 @@ try {
     new MyPortCommand(Server.getInstance(args[0])),
     new ConnectCommand(ConnectionsManager.getInstance()),
     new ListCommand(ConnectionsManager.getInstance()),
+    new TerminateCommand(ConnectionsManager.getInstance()),
     new SendCommand(ConnectionsManager.getInstance()),
     new ExitCommand(),
   ];
