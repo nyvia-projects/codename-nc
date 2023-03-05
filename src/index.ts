@@ -239,7 +239,7 @@ try {
 
       socket.on('connect', () => {
         this.updateConnectionIds();
-        socket.write(` joined`);
+        socket.write(`-joined-`);
       });
 
       socket.on('error', () => {
@@ -269,6 +269,15 @@ try {
       this.connections[index].socket.destroy();
       this.connections.splice(index, 1);
       this.updateConnectionIds();
+      console.log('Connection removed!');
+    }
+
+    removeAllConnections(): void {
+      if (this.connections.length === 0) {
+        throw new ConnectionError('No connections found!');
+      }
+      console.log('Removed all connections!');
+      this.connections.splice(0, this.connections.length);
     }
 
     private updateConnectionIds(): void {
@@ -448,8 +457,10 @@ try {
   }
   class ExitCommand implements ICommand {
     name = 'exit' as const;
+    constructor(private readonly manager: ConnectionsManager) {}
     execute(): void {
-      console.log('Exitting');
+      this.manager.removeAllConnections();
+      console.log('Exitting...');
       process.exit(0);
     }
   }
@@ -466,7 +477,7 @@ try {
     new ListCommand(ConnectionsManager.getInstance()),
     new TerminateCommand(ConnectionsManager.getInstance()),
     new SendCommand(ConnectionsManager.getInstance()),
-    new ExitCommand(),
+    new ExitCommand(ConnectionsManager.getInstance()),
   ];
 
   clear();
